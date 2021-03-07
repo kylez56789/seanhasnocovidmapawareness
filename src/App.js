@@ -42,20 +42,27 @@ export default function App() {
     libraries,
   });
   const [markers, setMarkers] = React.useState([]);
+  const [selected, setSelected] = React.useState([null]);
+
+  const onMapClick = React.useCallback(() => {}, [])
 
   if (loadError) return "Error loading maps";
   if (!isLoaded) return "Loading Maps";
-  getCovidDataFromApi();
+  //getCovidDataFromApi();
   return (
   <div>
     <h1>
+      <span role="img" aria-label="covidSpectrum">
       💚💛🧡❤️
+      </span>
       <br></br>
       💉Sean's Map Awareness{" "}
         <span role="img" aria-label="syringe">
           💉
-        </span>
-      </h1>
+      </span>
+      <br></br>
+      hello
+    </h1>
     <GoogleMap
       mapContainerStyle={mapContainerStyle}
       zoom={8}
@@ -67,20 +74,66 @@ export default function App() {
           {
             lat: event.latLng.lat(),
             lng: event.latLng.lng(),
+            latstr: toString(event.latLng.lat()),
+            lngstr: toString(event.latLng.lng()),
             time: new Date(),
           },
         ]);
-      }}
+        var url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=' + event.latLng.lat() + ',' + event.latLng.lng() + '&key=';
+        var fetchString = url.concat("AIzaSyAcmYsQk-QqKTSYF-f35iajaXAkdKp6QhM");
+        fetch(fetchString)
+        .then(response => response.json())
+        .then(geoData => {
+          for(var i in geoData) {
+            if (!(i === "results")) continue;
+            else {
+              var results = geoData[i];
+              for (var j = 0; j < results.length-1; j++) {
+                if (results[j].types[0] === "country") {
+                  var country = results[j].formatted_address;
+                  console.log(country);
+                  getCovidDataFromApi(country);
+                }
+              }
+            }
+          }
+        })
+        }
+      }
     >
-      {markers.map((marker) => (
-        <Marker
-        key={marker.time.toISOString()}
+    {markers.map((marker) => (
+      <Marker
+        key={`${marker.lat}-${marker.lng}`}
         position={{ lat: marker.lat, lng: marker.lng }}
-        />
-      ))}
+        onClick={() => {
+          setSelected(marker);
+        }}
+        icon={{
+          url: 'bear.svg',
+          origin: new window.google.maps.Point(0, 0),
+          anchor: new window.google.maps.Point(15, 15),
+          scaledSize: new window.google.maps.Size(30, 30),
+        }}
+      />
+    ))}
       </GoogleMap>
   </div>
   );
+  
+  // test code : one mark at a time
+/*
+var marker;
+function placeMarker(location){
+  if(marker){
+    marker.setPosition(location);
+  }else{
+    marker = new google.maps.Marker({
+      position: location,
+      map: map
+    });
+  }
+}*/
+
 }
 
 var findObjectByLabel = function(obj, label) {
@@ -93,24 +146,27 @@ var findObjectByLabel = function(obj, label) {
   return null;
 };
 
-function getCovidDataFromApi() {
+function getCovidDataFromApi(country) {
   fetch('https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.json')
     .then((response) => response.json())
     .then((responseJson) => {
     console.log(responseJson);
     for(var i in responseJson) {
-      var country = responseJson[i];
-      for (var j in country) {
-        if (j === "data") {
-          var data = country[j];
-          if ("total_cases" in data[data.length-1]) {
-            console.log("total cases: "+ data[data.length-1].total_cases);
-          }
-          if ("new_cases" in data[data.length-1]) {
-            console.log("new cases today: " + data[data.length-1].new_cases)
+      var countree = responseJson[i];
+      if (countree.location === country) {
+        for (var j in countree) {
+          if (j === "data") {
+            var data = countree[j];
+            if ("total_cases" in data[data.length-1]) {
+              console.log("total cases: "+ data[data.length-1].total_cases);
+            }
+            if ("new_cases" in data[data.length-1]) {
+              console.log("new cases today: " + data[data.length-1].new_cases)
+            }
           }
         }
       }
+      else continue;
     }
   })
   .catch((error) =>{
@@ -118,5 +174,15 @@ function getCovidDataFromApi() {
   })
 }
 
-
-
+/*{selected ? (
+  <InfoWindow
+    position = {{ lat: selected.lat, lng: selected.lng}}
+    onCLoseClick={() => {
+      setSelected(null);
+    }}
+    >
+      <div>
+        <h2>Ur mum's a hoe</h2>
+      </div>
+    </InfoWindow>
+    ) : null}*/
